@@ -1,0 +1,31 @@
+# AWS Amplify build specification for Next.js (App Router).
+# See: https://docs.aws.amazon.com/amplify/latest/userguide/yml-specification-syntax.html
+#
+# What this file does:
+# 1. preBuild: Install exact dependency versions from package-lock.json (npm ci).
+# 2. build: Run Next.js production build (outputs to .next).
+# 3. cache: Restore node_modules (and optionally .next/cache) on later builds for faster deploys.
+# 4. artifacts: Tell Amplify where the built app lives so it can serve and run SSR.
+#
+version: 1
+frontend:
+  phases:
+    # Install dependencies from lockfile only (reproducible, faster than npm install).
+    preBuild:
+      commands:
+        - npm ci
+    # Production build: compiles Next.js App Router app into .next.
+    build:
+      commands:
+        - npm run build
+  artifacts:
+    # Next.js build output; Amplify uses this for static assets and SSR.
+    baseDirectory: .next
+    files:
+      - "**/*"
+  cache:
+    # Cache node_modules so npm ci is much faster on subsequent builds.
+    paths:
+      - node_modules/**/*
+      # Next.js build cache (optional; speeds up rebuilds).
+      - .next/cache/**/*
