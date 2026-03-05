@@ -1,0 +1,370 @@
+// FabHomes - Production schema for PostgreSQL
+// OTP auth, RBAC (SUPER_ADMIN/ADMIN/SUPPORT/USER), UserQuery, ListingRequest, WishlistItem
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  SUPPORT
+  USER
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum PropertyMode {
+  BUY
+  RENT
+  COMMERCIAL
+}
+
+enum PropertyType {
+  APARTMENT
+  HOUSE_VILLA
+  PLOT
+  COMMERCIAL_OFFICE
+  SHOP
+}
+
+enum FurnishingType {
+  UNFURNISHED
+  SEMI_FURNISHED
+  FURNISHED
+}
+
+enum ListedBy {
+  OWNER
+  AGENT
+}
+
+enum PropertyStatus {
+  DRAFT
+  PENDING_REVIEW
+  VERIFIED
+  REJECTED
+  ARCHIVED
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  CLOSED_WON
+  CLOSED_LOST
+  SPAM
+}
+
+enum LeadSource {
+  WEB
+  ADMIN
+}
+
+enum UserQueryStatus {
+  NEW
+  IN_PROGRESS
+  MATCHED
+  CLOSED
+  SPAM
+}
+
+enum ListingRequestStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  PUBLISHED
+}
+
+enum AuditEntityType {
+  PROPERTY
+  LEAD
+  IMAGE
+  USER
+  SETTINGS
+  USER_QUERY
+  LISTING_REQUEST
+  WISHLIST
+}
+
+model User {
+  id        String     @id @default(uuid())
+  name      String?
+  phone     String     @unique
+  email     String?
+  role      UserRole   @default(USER)
+  status    UserStatus @default(ACTIVE)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  leadNotes          LeadNote[]
+  auditLogs          AuditLog[]
+  wishlistItems      WishlistItem[]
+  submittedLeads     Lead[]
+  assignedUserQueries UserQuery[]       @relation("AssignedUserQueries")
+  userQueryNotes     UserQueryNote[]
+  listingRequests    ListingRequest[]
+  reviewedListingRequests ListingRequest[] @relation("ReviewedListingRequests")
+  createdProperties  Property[]         @relation("CreatedByAdmin")
+  submittedProperties Property[]        @relation("SubmittedByUser")
+
+  @@index([phone])
+  @@index([role])
+  @@index([status])
+}
+
+model OtpRequest {
+  id           String   @id @default(uuid())
+  phone        String
+  otpHash      String
+  expiresAt    DateTime
+  requestIp    String?
+  attemptCount Int      @default(0)
+  requestCount Int      @default(1)
+  lastSentAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  @@index([phone, createdAt])
+  @@index([expiresAt])
+}
+
+model Property {
+  id                    String          @id @default(uuid())
+  mode                  PropertyMode
+  propertyType          PropertyType
+  title                 String
+  description           String         @default("")
+  locationText           String
+  city                  String
+  state                 String?
+  price                 BigInt
+  currency              String         @default("INR")
+  bhk                   Int?
+  areaSqFt              Int?
+  floorInfo             String?
+  furnishing            FurnishingType
+  listedBy              ListedBy
+  listingContactName    String?
+  listingContactPhone   String?
+  listingContactEmail   String?
+  status                PropertyStatus @default(DRAFT)
+  isActive              Boolean        @default(true)
+  isFeatured            Boolean        @default(false)
+  isNew                 Boolean        @default(false)
+  publishedAt           DateTime?
+  createdByAdminUserId  String?
+  submittedByUserId     String?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  createdByAdminUser  User?            @relation("CreatedByAdmin", fields: [createdByAdminUserId], references: [id], onDelete: SetNull)
+  submittedByUser     User?            @relation("SubmittedByUser", fields: [submittedByUserId], references: [id], onDelete: SetNull)
+
+  images     PropertyImage[]
+  amenities  PropertyAmenity[]
+  leads      Lead[]
+  wishlistItems WishlistItem[]
+
+  @@index([mode, city, status, isActive])
+  @@index([price])
+  @@index([createdAt])
+  @@index([propertyType])
+}
+
+model PropertyImage {
+  id         String   @id @default(uuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  s3Key      String   @unique
+  url        String
+  alt        String?
+  sortOrder  Int      @default(0)
+  isMain     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([propertyId, sortOrder])
+}
+
+model Amenity {
+  id    String @id @default(uuid())
+  code  String @unique
+  label String
+
+  properties PropertyAmenity[]
+
+  @@index([code])
+}
+
+model PropertyAmenity {
+  propertyId String
+  amenityId  String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  amenity    Amenity  @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+
+  @@id([propertyId, amenityId])
+  @@index([propertyId])
+  @@index([amenityId])
+}
+
+model Lead {
+  id                 String     @id @default(uuid())
+  propertyId         String?
+  property           Property?  @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  userId             String?
+  user               User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name               String
+  mobile             String
+  email              String?
+  message            String?
+  interestedInSimilar Boolean   @default(false)
+  status             LeadStatus @default(NEW)
+  source             LeadSource  @default(WEB)
+  duplicateOfLeadId   String?
+  duplicateOf        Lead?      @relation("LeadDedupe", fields: [duplicateOfLeadId], references: [id], onDelete: SetNull)
+  duplicates         Lead[]     @relation("LeadDedupe")
+  ipAddress          String?
+  userAgent          String?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  notes LeadNote[]
+
+  @@index([propertyId, createdAt])
+  @@index([mobile])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model LeadNote {
+  id          String   @id @default(uuid())
+  leadId      String
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  adminUserId String
+  adminUser   User     @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+  note        String
+  followUpAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([leadId, createdAt])
+}
+
+model UserQuery {
+  id                   String          @id @default(uuid())
+  userId               String?
+  name                 String?
+  mobile               String
+  email                String?
+  mode                 PropertyMode
+  city                 String
+  locationText         String?
+  propertyType         PropertyType?
+  budgetMin            BigInt?
+  budgetMax            BigInt?
+  bhk                  Int?
+  message              String
+  status               UserQueryStatus @default(NEW)
+  assignedToAdminUserId String?
+  assignedToAdminUser  User?           @relation("AssignedUserQueries", fields: [assignedToAdminUserId], references: [id], onDelete: SetNull)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  notes UserQueryNote[]
+
+  @@index([status, createdAt])
+  @@index([city, mode])
+  @@index([mobile])
+}
+
+model UserQueryNote {
+  id          String   @id @default(uuid())
+  userQueryId String
+  userQuery   UserQuery @relation(fields: [userQueryId], references: [id], onDelete: Cascade)
+  adminUserId String
+  adminUser   User     @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+  note        String
+  followUpAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([userQueryId, createdAt])
+}
+
+model WishlistItem {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, propertyId])
+  @@index([userId, createdAt])
+  @@index([propertyId])
+}
+
+model ListingRequest {
+  id                String               @id @default(uuid())
+  userId            String
+  user             User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mode             PropertyMode
+  propertyType     PropertyType
+  title             String?
+  locationText      String
+  city              String
+  price             BigInt
+  bhk               Int?
+  areaSqFt          Int?
+  furnishing        FurnishingType?
+  description       String               @default("")
+  status            ListingRequestStatus @default(SUBMITTED)
+  adminReviewerId   String?
+  adminReviewer     User?                @relation("ReviewedListingRequests", fields: [adminReviewerId], references: [id], onDelete: SetNull)
+  rejectionReason   String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  images ListingRequestImage[]
+
+  @@index([status, createdAt])
+  @@index([city, mode])
+}
+
+model ListingRequestImage {
+  id               String        @id @default(uuid())
+  listingRequestId String
+  listingRequest   ListingRequest @relation(fields: [listingRequestId], references: [id], onDelete: Cascade)
+  s3Key            String        @unique
+  url              String
+  sortOrder        Int           @default(0)
+  createdAt        DateTime      @default(now())
+
+  @@index([listingRequestId, sortOrder])
+}
+
+model AuditLog {
+  id           String           @id @default(uuid())
+  adminUserId  String
+  adminUser    User             @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+  actionType   String
+  entityType   AuditEntityType
+  entityId     String
+  metadata     Json?
+  createdAt    DateTime         @default(now())
+
+  @@index([entityType, createdAt])
+  @@index([adminUserId])
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}

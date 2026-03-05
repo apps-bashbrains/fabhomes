@@ -1,0 +1,86 @@
+# FabHomes CI/CD – Option A: AWS Amplify Hosting
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  lint-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Build
+        run: npm run build
+        env:
+          DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
+          NEXTAUTH_URL: "https://dummy.example.com"
+          NEXTAUTH_SECRET: "dummy-secret-for-build"
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+      - run: npm ci
+      - run: npm test
+
+  deploy:
+    if: github.ref == "refs/heads/main" && github.event_name == "push"
+    needs: [lint-and-build, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Run migrations (optional; set DATABASE_URL in secrets)
+        run: |
+          if [ -n "${{ secrets.DATABASE_URL }}" ]; then
+            npx prisma migrate deploy
+          else
+            echo "DATABASE_URL not set; skipping migrate deploy"
+          fi
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - name: Build for deploy
+        run: npm run build
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          S3_BUCKET_PROPERTY_IMAGES: ${{ secrets.S3_BUCKET_PROPERTY_IMAGES }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+      - name: Deploy
+        run: |
+          echo "Connect this repo to AWS Amplify in the Amplify Console for automatic deploy on push."
+          echo "Or upload the .next/standalone output to your runtime (e.g. ECS, Lambda)."
