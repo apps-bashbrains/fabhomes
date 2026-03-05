@@ -9,21 +9,6 @@ import { verifyOtp } from "@/lib/otp";
 import { prisma } from "@/lib/db";
 import { UserRole, UserStatus } from "@prisma/client";
 
-// Ensure NEXTAUTH_URL is always a valid URL (build + runtime). Amplify/env may have placeholder text.
-const raw = process.env.NEXTAUTH_URL;
-if (raw !== undefined && raw !== "") {
-  const trimmed = String(raw).trim();
-  const looksInvalid = trimmed.includes(" ") || trimmed.includes("Empty") || trimmed.length > 200;
-  try {
-    if (looksInvalid || !trimmed.startsWith("http")) throw new Error("Invalid");
-    new URL(trimmed);
-  } catch {
-    process.env.NEXTAUTH_URL = "https://localhost:3000";
-  }
-} else {
-  process.env.NEXTAUTH_URL = process.env.NEXTAUTH_URL || "https://localhost:3000";
-}
-
 const ADMIN_ROLES: UserRole[] = ["SUPER_ADMIN", "ADMIN", "SUPPORT"];
 
 export const authOptions: NextAuthOptions = {
