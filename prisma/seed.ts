@@ -23,7 +23,7 @@ const AMENITIES = [
 
 const DEFAULT_SETTINGS = [
   { key: "brand_name", value: "FabHomes" },
-  { key: "primary_color", value: "#0d9488" },
+  { key: "primary_color", value: "#0A1F44" },
   { key: "enable_lead_capture", value: true },
   { key: "maintenance_mode", value: false },
 ];

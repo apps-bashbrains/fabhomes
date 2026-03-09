@@ -17,7 +17,7 @@ export default function HomePage() {
   return (
     <div>
       {/* Hero */}
-      <section className="bg-gradient-to-b from-primary-light/30 to-white py-12 md:py-16 px-4">
+      <section className="bg-gradient-to-b from-primary-light/60 via-white to-white py-12 md:py-16 px-4">
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-2xl md:text-3xl font-semibold text-gray-900">
             Find your next home with {BRAND_NAME}

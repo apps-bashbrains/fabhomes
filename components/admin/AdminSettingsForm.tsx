@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/common/Checkbox";
 export function AdminSettingsForm({ initial }: { initial: Record<string, unknown> }) {
   const router = useRouter();
   const [brandName, setBrandName] = useState((initial.brand_name as string) ?? "FabHomes");
-  const [primaryColor, setPrimaryColor] = useState((initial.primary_color as string) ?? "#0d9488");
+  const [primaryColor, setPrimaryColor] = useState((initial.primary_color as string) ?? "#0A1F44");
   const [enableLeadCapture, setEnableLeadCapture] = useState((initial.enable_lead_capture as boolean) ?? true);
   const [maintenanceMode, setMaintenanceMode] = useState((initial.maintenance_mode as boolean) ?? false);
   const [loading, setLoading] = useState(false);

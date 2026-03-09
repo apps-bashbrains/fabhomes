@@ -10,9 +10,10 @@ const config: Config = {
     extend: {
       colors: {
         primary: {
-          DEFAULT: "#0d9488",
-          hover: "#0f766e",
-          light: "#ccfbf1",
+          // Royal navy base palette
+          DEFAULT: "#0A1F44",
+          hover: "#081836",
+          light: "#E6EEFF",
         },
       },
     },
